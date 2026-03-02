@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FAA Aircraft Registration Parser</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: #1a1a2e; color: #eee; min-height: 100vh; }
+  header { background: #16213e; padding: 14px 24px; border-bottom: 2px solid #0f3460; display: flex; align-items: center; gap: 12px; flex-wrap:wrap; }
+  header h1 { font-size: 1.2rem; color: #e94560; }
+  header span { font-size: 0.82rem; color: #aaa; }
+  .container { padding: 18px 20px; max-width: 1700px; margin: 0 auto; }
+
+  .drop-row { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .dropzone { border: 2px dashed #0f3460; border-radius: 10px; padding: 18px 14px; text-align: center; cursor: pointer; transition: all 0.2s; background: #16213e; flex: 1; min-width: 180px; }
+  .dropzone.drag { border-color: #e94560; background: #1f2a4a; }
+  .dropzone.loaded { border-color: #4caf50; background: #1a2e1a; }
+  .dropzone .icon { font-size: 1.6rem; margin-bottom: 6px; }
+  .dropzone h3 { font-size: 0.88rem; margin-bottom: 3px; }
+  .dropzone p { color: #aaa; font-size: 0.74rem; }
+  .dropzone .badge { display:inline-block; margin-top:6px; background:#4caf50; color:#fff; border-radius:20px; padding:1px 10px; font-size:0.72rem; }
+  .req { display:inline-block; background:#e94560; color:#fff; border-radius:20px; padding:1px 7px; font-size:0.68rem; margin-left:4px; }
+  .opt { display:inline-block; background:#0f3460; color:#aaa; border-radius:20px; padding:1px 7px; font-size:0.68rem; margin-left:4px; }
+  .dropzone input { display: none; }
+
+  #progress-wrap { display:none; margin-bottom:14px; background:#16213e; border-radius:10px; padding:12px 16px; }
+  #progress-bar-bg { background:#0f1b35; border-radius:8px; height:10px; overflow:hidden; margin:6px 0; }
+  #progress-bar { height:100%; width:0%; background:linear-gradient(90deg,#e94560,#0f3460); transition:width 0.15s; border-radius:8px; }
+  #progress-label { font-size:0.82rem; color:#aaa; }
+
+  .tabs { display:none; gap:4px; margin-bottom:14px; flex-wrap:wrap; }
+  .tab { padding:8px 18px; border-radius:6px 6px 0 0; border:none; cursor:pointer; font-size:0.83rem; background:#0f3460; color:#aaa; transition:all 0.2s; }
+  .tab.active { background:#e94560; color:#fff; font-weight:bold; }
+  .tab-count { background:rgba(255,255,255,0.15); border-radius:10px; padding:1px 7px; font-size:0.72rem; margin-left:5px; }
+
+  #stats { display:none; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+  .stat-card { background:#16213e; border-radius:8px; padding:12px 16px; flex:1; min-width:120px; border-left:3px solid #e94560; }
+  .stat-card .val { font-size:1.4rem; font-weight:bold; color:#e94560; }
+  .stat-card .lbl { font-size:0.72rem; color:#aaa; margin-top:2px; }
+  .stat-card.blue { border-left-color:#0f3460; }
+  .stat-card.blue .val { color:#5b9bd5; }
+  .stat-card.orange { border-left-color:#ff9800; }
+  .stat-card.orange .val { color:#ff9800; }
+
+  #controls { display:none; background:#16213e; border-radius:10px; padding:14px; margin-bottom:14px; gap:8px; flex-wrap:wrap; align-items:flex-end; }
+  .ctrl-group { display:flex; flex-direction:column; gap:3px; flex:1; min-width:140px; }
+  .ctrl-group label { font-size:0.73rem; color:#aaa; }
+  .ctrl-group input, .ctrl-group select { background:#0f1b35; border:1px solid #0f3460; color:#eee; padding:6px 9px; border-radius:6px; font-size:0.8rem; }
+  .ctrl-group input:focus, .ctrl-group select:focus { outline:none; border-color:#e94560; }
+  .btn { background:#e94560; color:#fff; border:none; padding:7px 14px; border-radius:6px; cursor:pointer; font-size:0.8rem; white-space:nowrap; }
+  .btn:hover { background:#c73652; }
+  .btn.sec { background:#0f3460; }
+  .btn.sec:hover { background:#1a4a8a; }
+  .btn.grn { background:#2e7d32; }
+  .btn.grn:hover { background:#1b5e20; }
+
+  #table-wrap { overflow:auto; border-radius:10px; background:#16213e; max-height:500px; }
+  table { width:100%; border-collapse:collapse; font-size:0.77rem; min-width:1100px; }
+  thead th { background:#0f3460; color:#e0e0e0; padding:8px 10px; text-align:left; position:sticky; top:0; white-space:nowrap; z-index:2; }
+  tbody tr:nth-child(even) { background:#1a2540; }
+  tbody tr:hover { background:#1f3060; }
+  tbody td { padding:6px 10px; border-bottom:1px solid #0f3460; white-space:nowrap; max-width:220px; overflow:hidden; text-overflow:ellipsis; }
+  #no-results { text-align:center; padding:40px; color:#aaa; display:none; }
+
+  #pagination { display:none; justify-content:center; align-items:center; gap:6px; padding:14px; flex-wrap:wrap; }
+  #pagination button { background:#0f3460; color:#eee; border:none; padding:5px 12px; border-radius:5px; cursor:pointer; font-size:0.78rem; }
+  #pagination button:hover { background:#1a4a8a; }
+  #pagination button.active { background:#e94560; }
+  #page-info { color:#aaa; font-size:0.78rem; }
+
+  .sv { color:#4caf50; font-weight:bold; }
+  .se { color:#ff9800; }
+  .sc { color:#f44336; }
+  .so { color:#aaa; }
+</style>
+</head>
+<body>
+<header>
+  <h1>✈ FAA Aircraft Registration Parser</h1>
+  <span>Master · Deregistered · Aircraft Ref · Engine Ref</span>
+</header>
+<div class="container">
+
+  <div class="drop-row">
+    <div class="dropzone" id="dz-master">
+      <div class="icon">📋</div>
+      <h3>MASTER.txt <span class="req">Required</span></h3>
+      <p>Registration Master File</p>
+      <input type="file" id="fi-master" accept=".txt,.csv">
+    </div>
+    <div class="dropzone" id="dz-dereg">
+      <div class="icon">🗂️</div>
+      <h3>DEREG.txt <span class="opt">Optional</span></h3>
+      <p>Deregistered Aircraft File</p>
+      <input type="file" id="fi-dereg" accept=".txt,.csv">
+    </div>
+    <div class="dropzone" id="dz-ref">
+      <div class="icon">📖</div>
+      <h3>ACFTREF.txt <span class="opt">Optional</span></h3>
+      <p>Aircraft Reference File</p>
+      <input type="file" id="fi-ref" accept=".txt,.csv">
+    </div>
+    <div class="dropzone" id="dz-eng">
+      <div class="icon">⚙️</div>
+      <h3>ENGINE.txt <span class="opt">Optional</span></h3>
+      <p>Engine Reference File</p>
+      <input type="file" id="fi-eng" accept=".txt,.csv">
+    </div>
+  </div>
+
+  <div id="progress-wrap">
+    <div id="progress-label">Reading file...</div>
+    <div id="progress-bar-bg"><div id="progress-bar"></div></div>
+  </div>
+
+  <div id="stats">
+    <div class="stat-card"><div class="val" id="s-total">0</div><div class="lbl">Registered Aircraft</div></div>
+    <div class="stat-card"><div class="val" id="s-valid">0</div><div class="lbl">Valid Registrations</div></div>
+    <div class="stat-card orange"><div class="val" id="s-exp">0</div><div class="lbl">Expired</div></div>
+    <div class="stat-card blue"><div class="val" id="s-dereg">0</div><div class="lbl">Deregistered</div></div>
+    <div class="stat-card"><div class="val" id="s-models">0</div><div class="lbl">Unique Models</div></div>
+    <div class="stat-card"><div class="val" id="s-states">0</div><div class="lbl">States</div></div>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab active" onclick="switchTab('registered')" id="tab-registered">
+      Registered <span class="tab-count" id="tc-reg">0</span>
+    </button>
+    <button class="tab" onclick="switchTab('deregistered')" id="tab-deregistered">
+      Deregistered <span class="tab-count" id="tc-dereg">0</span>
+    </button>
+  </div>
+
+  <div id="controls">
+    <div class="ctrl-group">
+      <label>Search (N-Number or Owner)</label>
+      <input type="text" id="f-search" placeholder="e.g. N12345, JOHN SMITH">
+    </div>
+    <div class="ctrl-group">
+      <label>Make (Manufacturer)</label>
+      <select id="f-make" onchange="onMakeChange()">
+        <option value="">All Makes</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label>Model</label>
+      <select id="f-model">
+        <option value="">All Models</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label>Aircraft Type</label>
+      <select id="f-type">
+        <option value="">All Types</option>
+        <option value="Fixed wing single engine">Fixed Wing Single Engine</option>
+        <option value="Fixed wing multi engine">Fixed Wing Multi Engine</option>
+        <option value="Rotorcraft">Rotorcraft</option>
+        <option value="Glider">Glider</option>
+        <option value="Balloon">Balloon</option>
+        <option value="Blimp/Dirigible">Blimp/Dirigible</option>
+        <option value="Weight-shift-control">Weight-Shift-Control</option>
+        <option value="Powered Parachute">Powered Parachute</option>
+        <option value="Gyroplane">Gyroplane</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label>Engine Type</label>
+      <select id="f-eng">
+        <option value="">All Engines</option>
+        <option value="Reciprocating">Reciprocating</option>
+        <option value="Turbo-prop">Turbo-prop</option>
+        <option value="Turbo-shaft">Turbo-shaft</option>
+        <option value="Turbo-jet">Turbo-jet</option>
+        <option value="Turbo-fan">Turbo-fan</option>
+        <option value="Electric">Electric</option>
+        <option value="None">None</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label>Status</label>
+      <select id="f-status">
+        <option value="">All Statuses</option>
+        <option value="Valid Registration">Valid Registration</option>
+        <option value="Registration Expired">Registration Expired</option>
+        <option value="Sale reported">Sale reported</option>
+        <option value="Registration pending">Registration pending</option>
+        <option value="Administratively Canceled">Administratively Canceled</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label>State</label>
+      <input type="text" id="f-state" placeholder="e.g. TX" maxlength="2">
+    </div>
+    <div class="ctrl-group">
+      <label>Year Mfr</label>
+      <input type="text" id="f-year" placeholder="e.g. 1975">
+    </div>
+    <div style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;">
+      <button class="btn" onclick="applyFilters()">🔍 Filter</button>
+      <button class="btn sec" onclick="clearFilters()">✕ Clear</button>
+      <button class="btn grn" onclick="exportCSV()">⬇ Export CSV</button>
+    </div>
+  </div>
+
+  <div id="table-wrap">
+    <table id="main-table">
+      <thead id="thead-row"></thead>
+      <tbody id="table-body"></tbody>
+    </table>
+    <div id="no-results">No records match your filters.</div>
+  </div>
+  <div id="pagination"></div>
+</div>
+
+<script>
+const PAGE_SIZE = 200;
+let registeredRecs = [], deregRecs = [], filtered = [];
+let currentPage = 1, activeTab = 'registered';
+let acftRefMap = {}, engRefMap = {};
+
+const regTypeMap  = {'1':'Individual','2':'Partnership','3':'Corporation','4':'Co-Owned','5':'Government','7':'LLC','8':'Non-Citizen Corp','9':'Non-Citizen Co-Owned'};
+const acTypeMap   = {'1':'Glider','2':'Balloon','3':'Blimp/Dirigible','4':'Fixed wing single engine','5':'Fixed wing multi engine','6':'Rotorcraft','7':'Weight-shift-control','8':'Powered Parachute','9':'Gyroplane','H':'Hybrid Lift','O':'Other'};
+const engTypeMap  = {'0':'None','1':'Reciprocating','2':'Turbo-prop','3':'Turbo-shaft','4':'Turbo-jet','5':'Turbo-fan','6':'Ramjet','7':'2 Cycle','8':'4 Cycle','9':'Unknown','10':'Electric','11':'Rotary'};
+const awClassMap  = {'1':'Standard','2':'Limited','3':'Restricted','4':'Experimental','5':'Provisional','6':'Multiple','7':'Primary','8':'Special Flight Permit','9':'Light Sport'};
+const statusMap   = {
+  'A':'Triennial Mailed - No Return','D':'Expired Dealer','E':'Revoked - Enforcement',
+  'M':'Valid - Manufacturer','N':'Non-citizen - No Flight Hours','R':'Registration pending',
+  'S':'2nd Triennial Mailed','T':'Valid - Trainee','V':'Valid Registration',
+  'W':'Certificate Ineffective','X':'Enforcement Letter','Z':'Permanent Reserved',
+  '1':'Undeliverable','2':'Not Registered','3':'Non-Type Cert - Not Registered',
+  '4':'Import - Not Registered','5':'Reserved N-Number','6':'Administratively Canceled',
+  '7':'Sale reported','8':'2nd Triennial - No Response','9':'Certificate Revoked',
+  '10':'Assigned - Pending Cancel','11':'Amateur - Pending Cancel','12':'Import - Pending Cancel',
+  '13':'Registration Expired','14':'1st Notice ReReg','15':'2nd Notice ReReg',
+  '16':'Expired - Pending Cancel','17':'Sale Reported - Pending Cancel','18':'Sale Reported - Canceled',
+  '19':'Reg Pending - Pending Cancel','20':'Reg Pending - Canceled','21':'Revoked - Pending Cancel',
+  '22':'Revoked - Canceled','23':'Expired Dealer - Pending Cancel','24':'3rd Notice ReReg',
+  '25':'1st Notice Renewal','26':'2nd Notice Renewal','27':'Registration Expired',
+  '28':'3rd Notice Renewal','29':'Expired - Pending Cancel'
+};
+
+const g = (f,i) => (f[i]||'').trim();
+const fmtDate = d => { if(!d)return''; d=d.replace(/\//g,''); return d.length===8?`${d.slice(4,6)}/${d.slice(6,8)}/${d.slice(0,4)}`:d; };
+
+// ── Column definitions ── (single source of truth for table AND export)
+const REG_COLS = [
+  { label:'N-Number',        val: r => 'N'+r.nnum },
+  { label:'Registrant Name', val: r => r.name },
+  { label:'City',            val: r => r.city },
+  { label:'State',           val: r => r.state },
+  { label:'Zip',             val: r => r.zip },
+  { label:'Registrant Type', val: r => r.regType },
+  { label:'Manufacturer',    val: r => r.mfrName },
+  { label:'Model',           val: r => r.modelName },
+  { label:'Aircraft Type',   val: r => r.acType },
+  { label:'Engine Mfr',      val: r => r.engMfrName },
+  { label:'Engine Model',    val: r => r.engModelName },
+  { label:'Engine Type',     val: r => r.engType },
+  { label:'HP / Thrust',     val: r => hpThrust(r) },
+  { label:'Year Mfr',        val: r => r.yearMfr },
+  { label:'Airworthiness',   val: r => r.awClass },
+  { label:'Status',          val: r => r.status },
+  { label:'Cert Issue Date', val: r => r.certDate },
+  { label:'Expiration Date', val: r => r.expDate },
+  { label:'Frac. Owned',     val: r => r.fracOwn==='Y'?'Yes':'No' }
+];
+
+const DEREG_COLS = [
+  { label:'N-Number',        val: r => 'N'+r.nnum },
+  { label:'Registrant Name', val: r => r.name },
+  { label:'City',            val: r => r.city },
+  { label:'State',           val: r => r.state },
+  { label:'Zip',             val: r => r.zip },
+  { label:'Registrant Type', val: r => r.regType },
+  { label:'Manufacturer',    val: r => r.mfrName },
+  { label:'Model',           val: r => r.modelName },
+  { label:'Engine Mfr',      val: r => r.engMfrName },
+  { label:'Engine Model',    val: r => r.engModelName },
+  { label:'Engine Type',     val: r => r.engType },
+  { label:'HP / Thrust',     val: r => hpThrust(r) },
+  { label:'Year Mfr',        val: r => r.yearMfr },
+  { label:'Airworthiness',   val: r => r.awClass },
+  { label:'Status',          val: r => r.status },
+  { label:'Cancel Date',     val: r => r.cancelDate },
+  { label:'Cert Issue Date', val: r => r.certDate },
+  { label:'Export Country',  val: r => r.exportCountry }
+];
+
+function cols() { return activeTab==='registered' ? REG_COLS : DEREG_COLS; }
+function hpThrust(r) { if(r.engHp&&r.engHp!=='0')return r.engHp+' hp'; if(r.engThrust&&r.engThrust!=='0')return r.engThrust+' lbs'; return ''; }
+
+// ── Drop zones ──
+function setupDZ(dzId,fiId,cb){
+  const dz=document.getElementById(dzId),fi=document.getElementById(fiId);
+  dz.addEventListener('click',()=>fi.click());
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag');});
+  dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
+  dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');cb(e.dataTransfer.files[0],dz);});
+  fi.addEventListener('change',e=>cb(e.target.files[0],dz));
+}
+function markLoaded(dz,label){
+  dz.classList.add('loaded');dz.classList.remove('drag');
+  const p=dz.querySelector('p');if(p)p.textContent=label;
+  if(!dz.querySelector('.badge'))dz.innerHTML+=`<div class="badge">✓ Loaded</div>`;
+}
+setupDZ('dz-master','fi-master',(f,dz)=>{if(!f)return;markLoaded(dz,f.name);parseChunkedFile(f,'master');});
+setupDZ('dz-dereg','fi-dereg',(f,dz)=>{if(!f)return;markLoaded(dz,f.name);parseChunkedFile(f,'dereg');});
+setupDZ('dz-ref','fi-ref',(f,dz)=>{if(!f)return;markLoaded(dz,f.name);parseSmallFile(f,lines=>{
+  let n=0;
+  for(const line of lines){const f2=line.split(',');if(f2.length<3)continue;const code=g(f2,0);if(!code||code.toUpperCase()==='CODE')continue;acftRefMap[code]={mfrName:g(f2,1),modelName:g(f2,2)};n++;}
+  dz.querySelector('.badge').textContent=`✓ ${n.toLocaleString()} models`;
+  enrichAll();
+});});
+setupDZ('dz-eng','fi-eng',(f,dz)=>{if(!f)return;markLoaded(dz,f.name);parseSmallFile(f,lines=>{
+  let n=0;
+  for(const line of lines){const f2=line.split(',');if(f2.length<3)continue;const code=g(f2,0);if(!code||code.toUpperCase()==='CODE')continue;engRefMap[code]={mfrName:g(f2,1),modelName:g(f2,2),hp:g(f2,4),thrust:g(f2,5)};n++;}
+  dz.querySelector('.badge').textContent=`✓ ${n.toLocaleString()} engines`;
+  enrichAll();
+});});
+
+function parseSmallFile(file,cb){
+  const r=new FileReader();r.onload=e=>cb(e.target.result.split('\n').map(l=>l.trim()).filter(Boolean));r.readAsText(file);
+}
+
+// ── Chunked parser ──
+let parseQueue={};
+function parseChunkedFile(file,type){
+  const pw=document.getElementById('progress-wrap'),pb=document.getElementById('progress-bar'),pl=document.getElementById('progress-label');
+  pw.style.display='block';pb.style.width='0%';
+  parseQueue[type]=true;
+  const CHUNK=4*1024*1024;
+  let offset=0,remainder='',isFirst=true,recs=[];
+  function readChunk(){
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const text=remainder+e.target.result;
+      const lines=text.split('\n');
+      remainder=lines.pop();
+      for(const line of lines){
+        const l=line.trim();if(!l)continue;
+        if(isFirst&&l.toUpperCase().startsWith('N-NUMBER')){isFirst=false;continue;}
+        isFirst=false;
+        const rec=type==='master'?parseMasterLine(l):parseDeregLine(l);
+        if(rec&&rec.nnum)recs.push(rec);
+      }
+      offset+=CHUNK;
+      const pct=Math.min(100,Math.round(offset/file.size*100));
+      pb.style.width=pct+'%';
+      pl.textContent=`Parsing ${type==='master'?'Master':'Deregistered'} file... ${pct}% — ${recs.length.toLocaleString()} records`;
+      if(offset<file.size){setTimeout(readChunk,0);}
+      else{
+        if(remainder.trim()){const rec=type==='master'?parseMasterLine(remainder.trim()):parseDeregLine(remainder.trim());if(rec&&rec.nnum)recs.push(rec);}
+        pl.textContent=`Done! ${recs.length.toLocaleString()} records loaded.`;
+        pb.style.width='100%';
+        if(type==='master')registeredRecs=recs;else deregRecs=recs;
+        delete parseQueue[type];
+        setTimeout(enrichAll,300);
+      }
+    };
+    reader.readAsText(file.slice(offset,offset+CHUNK));
+  }
+  readChunk();
+}
+
+function parseMasterLine(line){
+  const f=line.split(',');if(f.length<10)return null;
+  return{nnum:g(f,0),mfrCode:g(f,2),engCode:g(f,3),yearMfr:g(f,4),rawRegType:g(f,5),name:g(f,6),city:g(f,9),state:g(f,10),zip:g(f,11),rawAcType:g(f,19),rawEngType:g(f,20),rawStatus:g(f,21),rawAwClass:g(f,17),fracOwn:g(f,23),certDate:fmtDate(g(f,16)),expDate:fmtDate(g(f,30)),cancelDate:'',exportCountry:'',regType:regTypeMap[g(f,5)]||g(f,5),acType:acTypeMap[g(f,19)]||g(f,19),engType:engTypeMap[g(f,20)]||g(f,20),awClass:awClassMap[g(f,17)]||g(f,17),status:statusMap[g(f,21)]||g(f,21),mfrName:'',modelName:'',engMfrName:'',engModelName:'',engHp:'',engThrust:'',isDereg:false};
+}
+function parseDeregLine(line){
+  const f=line.split(',');if(f.length<10)return null;
+  return{nnum:g(f,0),mfrCode:g(f,2),engCode:g(f,10),yearMfr:g(f,11),rawRegType:g(f,20),name:g(f,4),city:g(f,7),state:g(f,8),zip:g(f,9),rawAcType:'',rawEngType:'',rawStatus:g(f,3),rawAwClass:g(f,12),fracOwn:'',certDate:fmtDate(g(f,23)),expDate:'',cancelDate:fmtDate(g(f,18)),exportCountry:g(f,21),regType:regTypeMap[g(f,20)]||g(f,20),acType:'',engType:'',awClass:awClassMap[g(f,12)]||g(f,12),status:statusMap[g(f,3)]||g(f,3),mfrName:'',modelName:'',engMfrName:'',engModelName:'',engHp:'',engThrust:'',isDereg:true};
+}
+
+function enrichAll(){
+  if(Object.keys(parseQueue).length>0)return;
+  if(!registeredRecs.length&&!deregRecs.length)return;
+  const enrich=rec=>{
+    const aRef=acftRefMap[rec.mfrCode];
+    if(aRef){rec.mfrName=aRef.mfrName;rec.modelName=aRef.modelName;}
+    const eRef=engRefMap[rec.engCode];
+    if(eRef){rec.engMfrName=eRef.mfrName;rec.engModelName=eRef.modelName;rec.engHp=eRef.hp;rec.engThrust=eRef.thrust;}
+    if(!rec.engType&&eRef)rec.engType=engTypeMap[eRef.type||'']||'';
+  };
+  registeredRecs.forEach(enrich);
+  deregRecs.forEach(enrich);
+  updateStats();
+  document.getElementById('controls').style.display='flex';
+  document.getElementById('tabs').style.display='flex';
+  document.getElementById('tc-reg').textContent=registeredRecs.length.toLocaleString();
+  document.getElementById('tc-dereg').textContent=deregRecs.length.toLocaleString();
+  switchTab(activeTab);
+}
+
+function updateStats(){
+  const valid=registeredRecs.filter(r=>r.rawStatus==='V').length;
+  const exp=registeredRecs.filter(r=>['13','16','27','29'].includes(r.rawStatus)).length;
+  const models=new Set([...registeredRecs,...deregRecs].map(r=>r.mfrCode).filter(Boolean)).size;
+  const states=new Set(registeredRecs.map(r=>r.state).filter(Boolean)).size;
+  document.getElementById('s-total').textContent=registeredRecs.length.toLocaleString();
+  document.getElementById('s-valid').textContent=valid.toLocaleString();
+  document.getElementById('s-exp').textContent=exp.toLocaleString();
+  document.getElementById('s-dereg').textContent=deregRecs.length.toLocaleString();
+  document.getElementById('s-models').textContent=models.toLocaleString();
+  document.getElementById('s-states').textContent=states.toLocaleString();
+  document.getElementById('stats').style.display='flex';
+}
+
+// ── Make/Model dropdowns ──
+function populateMakeModel(){
+  const src=activeTab==='registered'?registeredRecs:deregRecs;
+  const mm={};
+  for(const r of src){const m=(r.mfrName||'').trim();if(!m)continue;if(!mm[m])mm[m]=new Set();if(r.modelName&&r.modelName.trim())mm[m].add(r.modelName.trim());}
+  const makes=Object.keys(mm).sort();
+  const makeEl=document.getElementById('f-make');
+  const cur=makeEl.value;
+  makeEl.innerHTML='<option value="">All Makes</option>';
+  for(const m of makes){const o=document.createElement('option');o.value=m;o.textContent=m;if(m===cur)o.selected=true;makeEl.appendChild(o);}
+  makeEl._mm=mm;
+  populateModels(makeEl.value,mm);
+}
+function populateModels(make,mm){
+  const modelEl=document.getElementById('f-model');
+  const cur=modelEl.value;
+  modelEl.innerHTML='<option value="">All Models</option>';
+  const map=mm||document.getElementById('f-make')._mm||{};
+  const models=make&&map[make]?[...map[make]].sort():[];
+  for(const m of models){const o=document.createElement('option');o.value=m;o.textContent=m;if(m===cur)o.selected=true;modelEl.appendChild(o);}
+}
+function onMakeChange(){const el=document.getElementById('f-make');populateModels(el.value,el._mm);}
+
+function applyFilters(){
+  const search=document.getElementById('f-search').value.trim().toUpperCase();
+  const make=document.getElementById('f-make').value.toUpperCase();
+  const model=document.getElementById('f-model').value.toUpperCase();
+  const type=document.getElementById('f-type').value;
+  const engF=document.getElementById('f-eng').value;
+  const status=document.getElementById('f-status').value;
+  const state=document.getElementById('f-state').value.trim().toUpperCase();
+  const year=document.getElementById('f-year').value.trim();
+  const src=activeTab==='registered'?registeredRecs:deregRecs;
+  filtered=src.filter(r=>{
+    if(search&&!r.nnum.includes(search)&&!r.name.toUpperCase().includes(search))return false;
+    if(make&&r.mfrName.toUpperCase()!==make)return false;
+    if(model&&r.modelName.toUpperCase()!==model)return false;
+    if(type&&r.acType!==type)return false;
+    if(engF&&r.engType!==engF)return false;
+    if(status&&r.status!==status)return false;
+    if(state&&r.state.toUpperCase()!==state)return false;
+    if(year&&r.yearMfr!==year)return false;
+    return true;
+  });
+  currentPage=1;
+  renderTable();
+}
+
+function clearFilters(){
+  ['f-search','f-state','f-year'].forEach(id=>document.getElementById(id).value='');
+  ['f-type','f-eng','f-status','f-make','f-model'].forEach(id=>document.getElementById(id).value='');
+  onMakeChange();
+  filtered=[...(activeTab==='registered'?registeredRecs:deregRecs)];
+  currentPage=1;
+  renderTable();
+}
+
+function stCls(r){
+  const s=r.rawStatus;
+  if(['V','M','T'].includes(s))return'sv';
+  if(['13','16','27','29','D','23'].includes(s))return'se';
+  if(['6','9','E','18','22'].includes(s))return'sc';
+  return'so';
+}
+
+function setHeaders(){
+  document.getElementById('thead-row').innerHTML=
+    '<tr>'+cols().map(c=>`<th>${c.label}</th>`).join('')+'</tr>';
+}
+
+function renderTable(){
+  const tbody=document.getElementById('table-body');
+  const noRes=document.getElementById('no-results');
+  tbody.innerHTML='';
+  if(!filtered.length){noRes.style.display='block';document.getElementById('pagination').style.display='none';return;}
+  noRes.style.display='none';
+  const start=(currentPage-1)*PAGE_SIZE;
+  const frag=document.createDocumentFragment();
+  const C=cols();
+  const dash='<span style="color:#555">—</span>';
+  for(const r of filtered.slice(start,start+PAGE_SIZE)){
+    const tr=document.createElement('tr');
+    tr.innerHTML=C.map((c,i)=>{
+      const v=c.val(r)||'';
+      if(i===0) return `<td><b style="color:${r.isDereg?'#ff9800':'#e94560'}">${v}</b></td>`;
+      if(c.label==='Status') return `<td class="${stCls(r)}">${v||dash}</td>`;
+      return `<td>${v||dash}</td>`;
+    }).join('');
+    frag.appendChild(tr);
+  }
+  tbody.appendChild(frag);
+  renderPagination();
+}
+
+function renderPagination(){
+  const pg=document.getElementById('pagination');
+  const total=Math.ceil(filtered.length/PAGE_SIZE);
+  if(total<=1){pg.style.display='none';return;}
+  pg.style.display='flex';
+  const lo=((currentPage-1)*PAGE_SIZE+1).toLocaleString();
+  const hi=Math.min(currentPage*PAGE_SIZE,filtered.length).toLocaleString();
+  let html=`<span id="page-info">Showing ${lo}–${hi} of ${filtered.length.toLocaleString()}</span>`;
+  html+=`<button onclick="goPage(1)" ${currentPage===1?'disabled':''}>«</button>`;
+  html+=`<button onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹</button>`;
+  let s=Math.max(1,currentPage-2),e=Math.min(total,s+4);s=Math.max(1,e-4);
+  for(let i=s;i<=e;i++)html+=`<button class="${i===currentPage?'active':''}" onclick="goPage(${i})">${i}</button>`;
+  html+=`<button onclick="goPage(${currentPage+1})" ${currentPage===total?'disabled':''}>›</button>`;
+  html+=`<button onclick="goPage(${total})" ${currentPage===total?'disabled':''}>»</button>`;
+  pg.innerHTML=html;
+}
+
+function goPage(p){currentPage=p;renderTable();document.getElementById('table-wrap').scrollTop=0;}
+
+function switchTab(tab){
+  activeTab=tab;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.id==='tab-'+tab));
+  filtered=[...(tab==='registered'?registeredRecs:deregRecs)];
+  currentPage=1;
+  setHeaders();
+  populateMakeModel();
+  renderTable();
+}
+
+// ── Export — mirrors exactly what the table shows ──
+function exportCSV(){
+  const C=cols();
+  const headers=C.map(c=>c.label);
+  const rows=filtered.map(r=>C.map(c=>(c.val(r)||'').toString().replace(/"/g,'""')).map(v=>`"${v}"`).join(','));
+  const csv=[headers.map(h=>`"${h}"`).join(','),...rows].join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download=`FAA_${activeTab}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+</script>
+</body>
+</html>

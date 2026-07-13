@@ -33,9 +33,27 @@ npx prisma db seed     # optional: sample pipelines, custom fields, and demo rec
 npm run dev
 ```
 
-Open http://localhost:3000. You'll be redirected to `/login` — signing in requires the Azure
-AD app registration described below (there's no separate username/password login; this app
-only supports Microsoft sign-in).
+Open http://localhost:3000. You'll be redirected to `/login` — normally, signing in requires
+the Azure AD app registration described below (there's no separate username/password login;
+Microsoft sign-in is the only real auth method). **No Azure AD access?** See "Testing without
+Azure AD" right below — you can still run and click through the whole app.
+
+### Testing without Azure AD
+
+If you don't have an Azure/Entra tenant to register an app in, set this in your `.env`:
+
+```
+ENABLE_DEV_LOGIN="true"
+```
+
+Restart `npm run dev` and the login page gains a second option: type any email (and optional
+name) and click "Continue as this user" — no password, no Azure AD, no OAuth round trip. It
+creates a real `User` row so leads/tasks/etc. can be assigned to it like any other user. The
+only thing that won't work is Outlook sync, since there's no real Microsoft account behind it.
+
+**Never set `ENABLE_DEV_LOGIN=true` in a real deployment** — it lets anyone sign in as any
+email with nothing but that email address. It's meant for local dev only; leave it unset (or
+`"false"`) once you're running for real.
 
 ## 2. Azure AD (Microsoft Entra ID) app registration
 
@@ -84,6 +102,7 @@ Microsoft apps are.
 | `AZURE_AD_CLIENT_SECRET` | yes | From app registration |
 | `AZURE_AD_TENANT_ID` | yes | From app registration |
 | `CRON_SECRET` | recommended | Bearer token that protects `/api/cron/*` endpoints from being called by anyone who finds the URL |
+| `ENABLE_DEV_LOGIN` | dev only | `"true"` adds a no-password login option so you can test without Azure AD. **Never set in production.** |
 
 ## 4. Background jobs (email sync + task reminders)
 

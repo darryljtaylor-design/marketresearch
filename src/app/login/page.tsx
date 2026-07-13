@@ -1,4 +1,4 @@
-import { signIn } from "@/auth";
+import { signIn, devLoginEnabled } from "@/auth";
 import { Building2 } from "lucide-react";
 
 export default async function LoginPage({
@@ -36,6 +36,47 @@ export default async function LoginPage({
             Sign in with Microsoft
           </button>
         </form>
+
+        {devLoginEnabled && (
+          <>
+            <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
+              <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+              dev login (no Azure AD needed)
+              <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+            </div>
+            <form
+              action={async (formData) => {
+                "use server";
+                await signIn("dev-login", {
+                  email: formData.get("email"),
+                  name: formData.get("name"),
+                  redirectTo: callbackUrl || "/",
+                });
+              }}
+              className="space-y-2"
+            >
+              <input
+                name="email"
+                type="email"
+                required
+                placeholder="you@example.com"
+                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-900"
+              />
+              <input
+                name="name"
+                type="text"
+                placeholder="Display name (optional)"
+                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 dark:border-slate-700 dark:bg-slate-900"
+              />
+              <button
+                type="submit"
+                className="w-full rounded-md border border-dashed border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                Continue as this user
+              </button>
+            </form>
+          </>
+        )}
       </div>
     </div>
   );

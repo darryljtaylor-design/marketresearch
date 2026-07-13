@@ -8,6 +8,8 @@ import { humanizeEnum } from "@/lib/utils";
 import { NotesPanel } from "@/components/entity/notes-panel";
 import { TasksPanel } from "@/components/entity/tasks-panel";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
+import { CustomFieldsDisplay } from "@/components/custom-fields/custom-fields-display";
+import { getFieldDefs } from "@/lib/custom-fields";
 import { deleteLead } from "@/app/(app)/leads/actions";
 import { addNote } from "@/lib/actions/notes";
 import { createQuickTask } from "@/lib/actions/tasks";
@@ -18,7 +20,7 @@ export default async function LeadDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [lead, users] = await Promise.all([
+  const [lead, users, customFieldDefs] = await Promise.all([
     prisma.lead.findUnique({
       where: { id },
       include: {
@@ -32,6 +34,7 @@ export default async function LeadDetailPage({
       },
     }),
     getAllUsers(),
+    getFieldDefs("LEAD"),
   ]);
   if (!lead) notFound();
 
@@ -104,6 +107,8 @@ export default async function LeadDetailPage({
           </p>
         </div>
       )}
+
+      <CustomFieldsDisplay defs={customFieldDefs} values={lead.customFields as Record<string, unknown>} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">

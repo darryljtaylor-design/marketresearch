@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { leadSchema } from "@/lib/validations/lead";
+import { parseCustomFields } from "@/lib/custom-fields";
 
 function toOptional(value: FormDataEntryValue | null) {
   const str = (value ?? "").toString().trim();
@@ -32,8 +33,9 @@ export async function createLead(formData: FormData) {
   if (!session?.user) throw new Error("Unauthorized");
 
   const data = parseLeadForm(formData);
+  const customFields = await parseCustomFields("LEAD", formData);
   const lead = await prisma.lead.create({
-    data: { ...data, ownerId: data.ownerId || session.user.id },
+    data: { ...data, ownerId: data.ownerId || session.user.id, customFields },
   });
 
   revalidatePath("/leads");
@@ -45,9 +47,10 @@ export async function updateLead(id: string, formData: FormData) {
   if (!session?.user) throw new Error("Unauthorized");
 
   const data = parseLeadForm(formData);
+  const customFields = await parseCustomFields("LEAD", formData);
   await prisma.lead.update({
     where: { id },
-    data: { ...data, ownerId: data.ownerId || null },
+    data: { ...data, ownerId: data.ownerId || null, customFields },
   });
 
   revalidatePath("/leads");

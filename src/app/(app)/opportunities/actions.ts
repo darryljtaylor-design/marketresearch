@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { opportunitySchema } from "@/lib/validations/opportunity";
 import type { StageValues } from "@/lib/validations/opportunity-type";
+import { parseCustomFields } from "@/lib/custom-fields";
 
 function toOptional(value: FormDataEntryValue | null) {
   const str = (value ?? "").toString().trim();
@@ -38,6 +39,7 @@ export async function createOpportunity(formData: FormData) {
 
   const data = parseForm(formData);
   const meta = await stageMeta(data.opportunityTypeId, data.stage);
+  const customFields = await parseCustomFields("OPPORTUNITY", formData);
 
   const opportunity = await prisma.opportunity.create({
     data: {
@@ -53,6 +55,7 @@ export async function createOpportunity(formData: FormData) {
       description: data.description,
       wonAt: meta?.isWon ? new Date() : null,
       lostAt: meta?.isLost ? new Date() : null,
+      customFields,
     },
   });
 
@@ -66,6 +69,7 @@ export async function updateOpportunity(id: string, formData: FormData) {
 
   const data = parseForm(formData);
   const meta = await stageMeta(data.opportunityTypeId, data.stage);
+  const customFields = await parseCustomFields("OPPORTUNITY", formData);
 
   await prisma.opportunity.update({
     where: { id },
@@ -82,6 +86,7 @@ export async function updateOpportunity(id: string, formData: FormData) {
       description: data.description,
       wonAt: meta?.isWon ? new Date() : null,
       lostAt: meta?.isLost ? new Date() : null,
+      customFields,
     },
   });
 

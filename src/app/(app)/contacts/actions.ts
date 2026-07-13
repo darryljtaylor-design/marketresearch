@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { contactSchema } from "@/lib/validations/contact";
+import { parseCustomFields } from "@/lib/custom-fields";
 
 function toOptional(value: FormDataEntryValue | null) {
   const str = (value ?? "").toString().trim();
@@ -30,8 +31,14 @@ export async function createContact(formData: FormData) {
   if (!session?.user) throw new Error("Unauthorized");
 
   const data = parseContactForm(formData);
+  const customFields = await parseCustomFields("CONTACT", formData);
   const contact = await prisma.contact.create({
-    data: { ...data, companyId: data.companyId || null, ownerId: data.ownerId || session.user.id },
+    data: {
+      ...data,
+      companyId: data.companyId || null,
+      ownerId: data.ownerId || session.user.id,
+      customFields,
+    },
   });
 
   revalidatePath("/contacts");
@@ -43,9 +50,10 @@ export async function updateContact(id: string, formData: FormData) {
   if (!session?.user) throw new Error("Unauthorized");
 
   const data = parseContactForm(formData);
+  const customFields = await parseCustomFields("CONTACT", formData);
   await prisma.contact.update({
     where: { id },
-    data: { ...data, companyId: data.companyId || null, ownerId: data.ownerId || null },
+    data: { ...data, companyId: data.companyId || null, ownerId: data.ownerId || null, customFields },
   });
 
   revalidatePath("/contacts");

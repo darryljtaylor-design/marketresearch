@@ -1,16 +1,18 @@
 import Link from "next/link";
 import { OpportunityForm } from "@/components/opportunities/opportunity-form";
 import { getAllUsers } from "@/lib/data/users";
+import { getFieldDefs } from "@/lib/custom-fields";
 import { prisma } from "@/lib/prisma";
 import { createOpportunity } from "@/app/(app)/opportunities/actions";
 import type { StageValues } from "@/lib/validations/opportunity-type";
 
 export default async function NewOpportunityPage() {
-  const [users, companies, contacts, opportunityTypes] = await Promise.all([
+  const [users, companies, contacts, opportunityTypes, customFieldDefs] = await Promise.all([
     getAllUsers(),
     prisma.company.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.contact.findMany({ orderBy: { firstName: "asc" }, select: { id: true, firstName: true, lastName: true } }),
     prisma.opportunityType.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
+    getFieldDefs("OPPORTUNITY"),
   ]);
 
   if (opportunityTypes.length === 0) {
@@ -43,6 +45,7 @@ export default async function NewOpportunityPage() {
             name: t.name,
             stages: t.stages as StageValues[],
           }))}
+          customFieldDefs={customFieldDefs}
           submitLabel="Create opportunity"
         />
       </div>

@@ -1,10 +1,13 @@
 import { Field, TextInput, TextArea, Select } from "@/components/form/fields";
+import { CustomFieldsFieldset } from "@/components/custom-fields/custom-fields-fieldset";
+import type { CustomFieldDef } from "@/lib/custom-fields";
 
 export function CompanyForm({
   action,
   users,
   defaultValues,
   submitLabel,
+  customFieldDefs = [],
 }: {
   action: (formData: FormData) => void;
   users: { id: string; name: string | null; email: string | null }[];
@@ -20,8 +23,10 @@ export function CompanyForm({
     country?: string | null;
     ownerId?: string | null;
     description?: string | null;
+    customFields?: unknown;
   };
   submitLabel: string;
+  customFieldDefs?: CustomFieldDef[];
 }) {
   const d = defaultValues ?? {};
   return (
@@ -75,6 +80,7 @@ export function CompanyForm({
       <Field label="Description" htmlFor="description">
         <TextArea id="description" name="description" defaultValue={d.description ?? ""} />
       </Field>
+      <CustomFieldsFieldset defs={customFieldDefs} values={d.customFields as Record<string, unknown>} />
       <div className="flex justify-end gap-2">
         <button
           type="submit"

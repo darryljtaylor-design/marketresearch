@@ -1,5 +1,7 @@
 import { Field, TextInput, TextArea, Select } from "@/components/form/fields";
 import { humanizeEnum } from "@/lib/utils";
+import { CustomFieldsFieldset } from "@/components/custom-fields/custom-fields-fieldset";
+import type { CustomFieldDef } from "@/lib/custom-fields";
 
 const STATUSES = ["NEW", "CONTACTED", "QUALIFIED", "UNQUALIFIED", "CONVERTED"];
 const RATINGS = ["HOT", "WARM", "COLD"];
@@ -9,6 +11,7 @@ export function LeadForm({
   users,
   defaultValues,
   submitLabel,
+  customFieldDefs = [],
 }: {
   action: (formData: FormData) => void;
   users: { id: string; name: string | null; email: string | null }[];
@@ -24,8 +27,10 @@ export function LeadForm({
     rating?: string;
     ownerId?: string | null;
     description?: string | null;
+    customFields?: unknown;
   };
   submitLabel: string;
+  customFieldDefs?: CustomFieldDef[];
 }) {
   const d = defaultValues ?? {};
   return (
@@ -89,6 +94,7 @@ export function LeadForm({
       <Field label="Description" htmlFor="description">
         <TextArea id="description" name="description" defaultValue={d.description ?? ""} />
       </Field>
+      <CustomFieldsFieldset defs={customFieldDefs} values={d.customFields as Record<string, unknown>} />
       <div className="flex justify-end gap-2">
         <button
           type="submit"

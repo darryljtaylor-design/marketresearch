@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { Field, TextInput, TextArea, Select } from "@/components/form/fields";
+import { CustomFieldsFieldset } from "@/components/custom-fields/custom-fields-fieldset";
 import type { StageValues } from "@/lib/validations/opportunity-type";
+import type { CustomFieldDef } from "@/lib/custom-fields";
 
 type OpportunityTypeOption = { id: string; name: string; stages: StageValues[] };
 
@@ -14,6 +16,7 @@ export function OpportunityForm({
   opportunityTypes,
   defaultValues,
   submitLabel,
+  customFieldDefs = [],
 }: {
   action: (formData: FormData) => void;
   users: { id: string; name: string | null; email: string | null }[];
@@ -30,8 +33,10 @@ export function OpportunityForm({
     contactId?: string | null;
     ownerId?: string | null;
     description?: string | null;
+    customFields?: unknown;
   };
   submitLabel: string;
+  customFieldDefs?: CustomFieldDef[];
 }) {
   const d = defaultValues ?? {};
   const [typeId, setTypeId] = useState(d.opportunityTypeId ?? opportunityTypes[0]?.id ?? "");
@@ -112,6 +117,7 @@ export function OpportunityForm({
       <Field label="Description" htmlFor="description">
         <TextArea id="description" name="description" defaultValue={d.description ?? ""} />
       </Field>
+      <CustomFieldsFieldset defs={customFieldDefs} values={d.customFields as Record<string, unknown>} />
       <div className="flex justify-end gap-2">
         <button
           type="submit"

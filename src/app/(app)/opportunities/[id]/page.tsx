@@ -8,6 +8,8 @@ import { NotesPanel } from "@/components/entity/notes-panel";
 import { TasksPanel } from "@/components/entity/tasks-panel";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { StageSelect } from "@/components/opportunities/stage-select";
+import { CustomFieldsDisplay } from "@/components/custom-fields/custom-fields-display";
+import { getFieldDefs } from "@/lib/custom-fields";
 import { deleteOpportunity } from "@/app/(app)/opportunities/actions";
 import { addNote } from "@/lib/actions/notes";
 import { createQuickTask } from "@/lib/actions/tasks";
@@ -20,7 +22,7 @@ export default async function OpportunityDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [opportunity, users] = await Promise.all([
+  const [opportunity, users, customFieldDefs] = await Promise.all([
     prisma.opportunity.findUnique({
       where: { id },
       include: {
@@ -33,6 +35,7 @@ export default async function OpportunityDetailPage({
       },
     }),
     getAllUsers(),
+    getFieldDefs("OPPORTUNITY"),
   ]);
   if (!opportunity) notFound();
 
@@ -98,6 +101,8 @@ export default async function OpportunityDetailPage({
           </p>
         </div>
       )}
+
+      <CustomFieldsDisplay defs={customFieldDefs} values={opportunity.customFields as Record<string, unknown>} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">

@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { getAllUsers } from "@/lib/data/users";
 import { Field, TextInput, TextArea, Select } from "@/components/form/fields";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
+import { CustomFieldsFieldset } from "@/components/custom-fields/custom-fields-fieldset";
+import { getFieldDefs } from "@/lib/custom-fields";
 import { humanizeEnum } from "@/lib/utils";
 import { updateTask, deleteTask } from "@/app/(app)/tasks/actions";
 
@@ -21,7 +23,7 @@ export default async function TaskDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [task, users] = await Promise.all([
+  const [task, users, customFieldDefs] = await Promise.all([
     prisma.task.findUnique({
       where: { id },
       include: {
@@ -32,6 +34,7 @@ export default async function TaskDetailPage({
       },
     }),
     getAllUsers(),
+    getFieldDefs("TASK"),
   ]);
   if (!task) notFound();
 
@@ -124,6 +127,7 @@ export default async function TaskDetailPage({
             </Select>
           </Field>
         </div>
+        <CustomFieldsFieldset defs={customFieldDefs} values={task.customFields as Record<string, unknown>} />
         <div className="flex justify-end gap-2">
           <button
             type="submit"

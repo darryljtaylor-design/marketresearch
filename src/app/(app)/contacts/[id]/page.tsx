@@ -7,6 +7,8 @@ import { Badge } from "@/components/badge";
 import { NotesPanel } from "@/components/entity/notes-panel";
 import { TasksPanel } from "@/components/entity/tasks-panel";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
+import { CustomFieldsDisplay } from "@/components/custom-fields/custom-fields-display";
+import { getFieldDefs } from "@/lib/custom-fields";
 import { deleteContact } from "@/app/(app)/contacts/actions";
 import { addNote } from "@/lib/actions/notes";
 import { createQuickTask } from "@/lib/actions/tasks";
@@ -17,7 +19,7 @@ export default async function ContactDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [contact, users] = await Promise.all([
+  const [contact, users, customFieldDefs] = await Promise.all([
     prisma.contact.findUnique({
       where: { id },
       include: {
@@ -29,6 +31,7 @@ export default async function ContactDetailPage({
       },
     }),
     getAllUsers(),
+    getFieldDefs("CONTACT"),
   ]);
   if (!contact) notFound();
 
@@ -89,6 +92,8 @@ export default async function ContactDetailPage({
           </p>
         </div>
       )}
+
+      <CustomFieldsDisplay defs={customFieldDefs} values={contact.customFields as Record<string, unknown>} />
 
       <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
         <h2 className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Opportunities</h2>

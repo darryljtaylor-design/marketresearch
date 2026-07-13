@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { OpportunityForm } from "@/components/opportunities/opportunity-form";
 import { getAllUsers } from "@/lib/data/users";
+import { getFieldDefs } from "@/lib/custom-fields";
 import { prisma } from "@/lib/prisma";
 import { updateOpportunity } from "@/app/(app)/opportunities/actions";
 import type { StageValues } from "@/lib/validations/opportunity-type";
@@ -11,12 +12,13 @@ export default async function EditOpportunityPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [opportunity, users, companies, contacts, opportunityTypes] = await Promise.all([
+  const [opportunity, users, companies, contacts, opportunityTypes, customFieldDefs] = await Promise.all([
     prisma.opportunity.findUnique({ where: { id } }),
     getAllUsers(),
     prisma.company.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.contact.findMany({ orderBy: { firstName: "asc" }, select: { id: true, firstName: true, lastName: true } }),
     prisma.opportunityType.findMany({ orderBy: { name: "asc" } }),
+    getFieldDefs("OPPORTUNITY"),
   ]);
   if (!opportunity) notFound();
 
@@ -40,6 +42,7 @@ export default async function EditOpportunityPage({
             ...opportunity,
             amount: opportunity.amount ? Number(opportunity.amount) : null,
           }}
+          customFieldDefs={customFieldDefs}
           submitLabel="Save changes"
         />
       </div>

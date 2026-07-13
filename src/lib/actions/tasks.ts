@@ -3,9 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import type { RelatedEntityType } from "@/generated/prisma/client";
 
-const FK_BY_ENTITY: Record<RelatedEntityType, string> = {
+export type LinkableEntityType = "LEAD" | "CONTACT" | "COMPANY" | "OPPORTUNITY";
+
+const FK_BY_ENTITY: Record<LinkableEntityType, string> = {
   LEAD: "leadId",
   CONTACT: "contactId",
   COMPANY: "companyId",
@@ -13,7 +14,7 @@ const FK_BY_ENTITY: Record<RelatedEntityType, string> = {
 };
 
 export async function createQuickTask(
-  entityType: RelatedEntityType,
+  entityType: LinkableEntityType,
   entityId: string,
   detailPath: string,
   formData: FormData

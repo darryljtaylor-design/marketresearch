@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { taskSchema } from "@/lib/validations/task";
+import { parseCustomFields } from "@/lib/custom-fields";
 
 export async function updateTask(id: string, formData: FormData) {
   const session = await auth();
@@ -20,6 +21,8 @@ export async function updateTask(id: string, formData: FormData) {
     assignedToId: (formData.get("assignedToId") ?? "").toString() || undefined,
   });
 
+  const customFields = await parseCustomFields("TASK", formData);
+
   await prisma.task.update({
     where: { id },
     data: {
@@ -30,6 +33,7 @@ export async function updateTask(id: string, formData: FormData) {
       status: data.status,
       priority: data.priority,
       assignedToId: data.assignedToId || null,
+      customFields,
       // A manual edit means any previous notification cooldown no longer applies.
       lastNotifiedAt: null,
     },

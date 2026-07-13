@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { companySchema } from "@/lib/validations/company";
+import { parseCustomFields } from "@/lib/custom-fields";
 
 function toOptional(value: FormDataEntryValue | null) {
   const str = (value ?? "").toString().trim();
@@ -32,8 +33,9 @@ export async function createCompany(formData: FormData) {
   if (!session?.user) throw new Error("Unauthorized");
 
   const data = parseCompanyForm(formData);
+  const customFields = await parseCustomFields("COMPANY", formData);
   const company = await prisma.company.create({
-    data: { ...data, ownerId: data.ownerId || session.user.id },
+    data: { ...data, ownerId: data.ownerId || session.user.id, customFields },
   });
 
   revalidatePath("/companies");
@@ -45,9 +47,10 @@ export async function updateCompany(id: string, formData: FormData) {
   if (!session?.user) throw new Error("Unauthorized");
 
   const data = parseCompanyForm(formData);
+  const customFields = await parseCustomFields("COMPANY", formData);
   await prisma.company.update({
     where: { id },
-    data: { ...data, ownerId: data.ownerId || null },
+    data: { ...data, ownerId: data.ownerId || null, customFields },
   });
 
   revalidatePath("/companies");

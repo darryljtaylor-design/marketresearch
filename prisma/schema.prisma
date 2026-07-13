@@ -259,6 +259,7 @@ enum RelatedEntityType {
   CONTACT
   COMPANY
   OPPORTUNITY
+  TASK
 }
 
 model Task {

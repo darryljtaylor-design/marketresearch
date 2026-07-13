@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { ContactForm } from "@/components/contacts/contact-form";
 import { getAllUsers } from "@/lib/data/users";
+import { getFieldDefs } from "@/lib/custom-fields";
 import { prisma } from "@/lib/prisma";
 import { updateContact } from "@/app/(app)/contacts/actions";
 
@@ -10,10 +11,11 @@ export default async function EditContactPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [contact, users, companies] = await Promise.all([
+  const [contact, users, companies, customFieldDefs] = await Promise.all([
     prisma.contact.findUnique({ where: { id } }),
     getAllUsers(),
     prisma.company.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    getFieldDefs("CONTACT"),
   ]);
   if (!contact) notFound();
 
@@ -28,6 +30,7 @@ export default async function EditContactPage({
           users={users}
           companies={companies}
           defaultValues={contact}
+          customFieldDefs={customFieldDefs}
           submitLabel="Save changes"
         />
       </div>

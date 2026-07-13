@@ -1,5 +1,6 @@
 import { ContactForm } from "@/components/contacts/contact-form";
 import { getAllUsers } from "@/lib/data/users";
+import { getFieldDefs } from "@/lib/custom-fields";
 import { prisma } from "@/lib/prisma";
 import { createContact } from "@/app/(app)/contacts/actions";
 
@@ -9,9 +10,10 @@ export default async function NewContactPage({
   searchParams: Promise<{ companyId?: string }>;
 }) {
   const { companyId } = await searchParams;
-  const [users, companies] = await Promise.all([
+  const [users, companies, customFieldDefs] = await Promise.all([
     getAllUsers(),
     prisma.company.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    getFieldDefs("CONTACT"),
   ]);
 
   return (
@@ -23,6 +25,7 @@ export default async function NewContactPage({
           users={users}
           companies={companies}
           defaultValues={companyId ? { companyId } : undefined}
+          customFieldDefs={customFieldDefs}
           submitLabel="Create contact"
         />
       </div>

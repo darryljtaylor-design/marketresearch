@@ -1,0 +1,424 @@
+// Victor Sierra CRM data model
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------- Auth (NextAuth / Entra ID) ----------
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  role          UserRole  @default(MEMBER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+
+  ownedLeads         Lead[]         @relation("LeadOwner")
+  ownedCompanies     Company[]      @relation("CompanyOwner")
+  ownedContacts      Contact[]      @relation("ContactOwner")
+  ownedOpportunities Opportunity[]  @relation("OpportunityOwner")
+  assignedTasks      Task[]         @relation("TaskAssignee")
+  createdTasks       Task[]         @relation("TaskCreator")
+  notifications      Notification[]
+  notes              Note[]
+  emailMessages      EmailMessage[]
+}
+
+enum UserRole {
+  ADMIN
+  MEMBER
+}
+
+// Stores Microsoft OAuth tokens (access/refresh) for delegated Graph API calls.
+model Account {
+  id                       String  @id @default(cuid())
+  userId                   String
+  type                     String
+  provider                 String
+  providerAccountId        String
+  refresh_token            String? @db.Text
+  access_token             String? @db.Text
+  expires_at               Int?
+  token_type               String?
+  scope                    String?
+  id_token                 String? @db.Text
+  session_state            String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------- CRM core entities ----------
+
+model Company {
+  id          String   @id @default(cuid())
+  name        String
+  industry    String?
+  website     String?
+  phone       String?
+  street      String?
+  city        String?
+  state       String?
+  postalCode  String?
+  country     String?
+  description String?  @db.Text
+  customFields Json    @default("{}")
+
+  ownerId String?
+  owner   User?   @relation("CompanyOwner", fields: [ownerId], references: [id])
+
+  contacts      Contact[]
+  opportunities Opportunity[]
+  tasks         Task[]        @relation("CompanyTasks")
+  notes         Note[]        @relation("CompanyNotes")
+  emailMessages EmailMessage[] @relation("CompanyEmails")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  email     String?
+  phone     String?
+  mobile    String?
+  title     String?
+  description String? @db.Text
+  customFields Json   @default("{}")
+
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  ownerId String?
+  owner   User?   @relation("ContactOwner", fields: [ownerId], references: [id])
+
+  opportunities Opportunity[]
+  tasks         Task[]        @relation("ContactTasks")
+  notes         Note[]        @relation("ContactNotes")
+  emailMessages EmailMessage[] @relation("ContactEmails")
+  convertedFromLead Lead?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([ownerId])
+  @@index([email])
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  UNQUALIFIED
+  CONVERTED
+}
+
+enum LeadRating {
+  HOT
+  WARM
+  COLD
+}
+
+model Lead {
+  id          String     @id @default(cuid())
+  firstName   String
+  lastName    String
+  companyName String?
+  email       String?
+  phone       String?
+  title       String?
+  source      String?
+  status      LeadStatus @default(NEW)
+  rating      LeadRating @default(WARM)
+  description String?    @db.Text
+  customFields Json      @default("{}")
+
+  ownerId String?
+  owner   User?   @relation("LeadOwner", fields: [ownerId], references: [id])
+
+  convertedContactId     String?      @unique
+  convertedContact       Contact?     @relation(fields: [convertedContactId], references: [id])
+  convertedCompanyId     String?
+  convertedOpportunityId String?
+
+  tasks         Task[]         @relation("LeadTasks")
+  notes         Note[]         @relation("LeadNotes")
+  emailMessages EmailMessage[] @relation("LeadEmails")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([email])
+}
+
+// Admin-configurable pipeline: each OpportunityType has its own ordered stage list.
+model OpportunityType {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  stages      Json     // [{ key, label, order, probability, isWon, isLost }]
+  isActive    Boolean  @default(true)
+
+  opportunities Opportunity[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Opportunity {
+  id          String   @id @default(cuid())
+  name        String
+  amount      Decimal? @db.Decimal(14, 2)
+  currency    String   @default("USD")
+  stage       String
+  probability Int      @default(0)
+  closeDate   DateTime?
+  description String?  @db.Text
+  customFields Json    @default("{}")
+
+  opportunityTypeId String
+  opportunityType   OpportunityType @relation(fields: [opportunityTypeId], references: [id])
+
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id])
+
+  ownerId String?
+  owner   User?   @relation("OpportunityOwner", fields: [ownerId], references: [id])
+
+  wonAt  DateTime?
+  lostAt DateTime?
+  lostReason String?
+
+  tasks         Task[]         @relation("OpportunityTasks")
+  notes         Note[]         @relation("OpportunityNotes")
+  emailMessages EmailMessage[] @relation("OpportunityEmails")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([opportunityTypeId])
+  @@index([ownerId])
+  @@index([companyId])
+  @@index([stage])
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  DEFERRED
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum RelatedEntityType {
+  LEAD
+  CONTACT
+  COMPANY
+  OPPORTUNITY
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  subject     String
+  description String?      @db.Text
+  dueDate     DateTime?
+  reminderAt  DateTime?
+  status      TaskStatus   @default(OPEN)
+  priority    TaskPriority @default(NORMAL)
+  customFields Json        @default("{}")
+
+  relatedType RelatedEntityType?
+
+  leadId        String?
+  lead          Lead?        @relation("LeadTasks", fields: [leadId], references: [id], onDelete: Cascade)
+  contactId     String?
+  contact       Contact?     @relation("ContactTasks", fields: [contactId], references: [id], onDelete: Cascade)
+  companyId     String?
+  company       Company?     @relation("CompanyTasks", fields: [companyId], references: [id], onDelete: Cascade)
+  opportunityId String?
+  opportunity   Opportunity? @relation("OpportunityTasks", fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  assignedToId String?
+  assignedTo   User?   @relation("TaskAssignee", fields: [assignedToId], references: [id])
+  createdById  String?
+  createdBy    User?   @relation("TaskCreator", fields: [createdById], references: [id])
+
+  outlookEventId String? // Graph calendar event id when synced to Outlook
+  lastNotifiedAt DateTime?
+
+  notifications Notification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([assignedToId])
+  @@index([dueDate])
+  @@index([status])
+}
+
+model Note {
+  id      String @id @default(cuid())
+  body    String @db.Text
+
+  authorId String?
+  author   User?  @relation(fields: [authorId], references: [id])
+
+  leadId        String?
+  lead          Lead?        @relation("LeadNotes", fields: [leadId], references: [id], onDelete: Cascade)
+  contactId     String?
+  contact       Contact?     @relation("ContactNotes", fields: [contactId], references: [id], onDelete: Cascade)
+  companyId     String?
+  company       Company?     @relation("CompanyNotes", fields: [companyId], references: [id], onDelete: Cascade)
+  opportunityId String?
+  opportunity   Opportunity? @relation("OpportunityNotes", fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+enum NotificationType {
+  TASK_DUE
+  TASK_OVERDUE
+  LEAD_ASSIGNED
+  OPPORTUNITY_ASSIGNED
+  EMAIL_RECEIVED
+  MENTION
+}
+
+model Notification {
+  id      String            @id @default(cuid())
+  userId  String
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type    NotificationType
+  message String
+  link    String?
+  read    Boolean           @default(false)
+
+  taskId String?
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+}
+
+// Emails auto-pulled from Outlook via Microsoft Graph, linked to CRM records by matching address.
+model EmailMessage {
+  id             String   @id @default(cuid())
+  graphMessageId String   @unique
+  subject        String?
+  fromAddress    String?
+  fromName       String?
+  toAddresses    String[]
+  direction      EmailDirection
+  bodyPreview    String?  @db.Text
+  receivedAt     DateTime
+
+  mailboxUserId String?
+  mailboxUser   User?   @relation(fields: [mailboxUserId], references: [id])
+
+  leadId        String?
+  lead          Lead?        @relation("LeadEmails", fields: [leadId], references: [id])
+  contactId     String?
+  contact       Contact?     @relation("ContactEmails", fields: [contactId], references: [id])
+  companyId     String?
+  company       Company?     @relation("CompanyEmails", fields: [companyId], references: [id])
+  opportunityId String?
+  opportunity   Opportunity? @relation("OpportunityEmails", fields: [opportunityId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([fromAddress])
+  @@index([receivedAt])
+}
+
+enum EmailDirection {
+  INBOUND
+  OUTBOUND
+}
+
+// ---------- Custom fields engine ----------
+
+enum CustomFieldType {
+  TEXT
+  TEXTAREA
+  NUMBER
+  DATE
+  DROPDOWN
+  CHECKBOX
+  EMAIL
+  PHONE
+  URL
+}
+
+model CustomFieldDefinition {
+  id         String            @id @default(cuid())
+  entityType RelatedEntityType
+  fieldKey   String
+  label      String
+  fieldType  CustomFieldType
+  options    Json?             // for DROPDOWN: string[]
+  required   Boolean           @default(false)
+  order      Int               @default(0)
+  isActive   Boolean           @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([entityType, fieldKey])
+}
+
+// Tracks per-user Outlook sync cursor/state (delta link, last sync time).
+model SyncState {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  mailDeltaLink String?   @db.Text
+  lastSyncedAt  DateTime?
+  syncEnabled   Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

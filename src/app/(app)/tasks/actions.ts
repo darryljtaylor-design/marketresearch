@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { taskSchema } from "@/lib/validations/task";
 import { parseCustomFields } from "@/lib/custom-fields";
+import { syncTaskToOutlookCalendar, deleteTaskFromOutlookCalendar } from "@/lib/graph/sync-calendar";
 
 export async function updateTask(id: string, formData: FormData) {
   const session = await auth();
@@ -40,6 +41,7 @@ export async function updateTask(id: string, formData: FormData) {
   });
 
   revalidatePath("/tasks");
+  await syncTaskToOutlookCalendar(id);
   redirect("/tasks");
 }
 
@@ -47,7 +49,13 @@ export async function deleteTask(id: string) {
   const session = await auth();
   if (!session?.user) throw new Error("Unauthorized");
 
+  const task = await prisma.task.findUnique({
+    where: { id },
+    select: { assignedToId: true, outlookEventId: true },
+  });
   await prisma.task.delete({ where: { id } });
+  if (task) await deleteTaskFromOutlookCalendar(task);
+
   revalidatePath("/tasks");
   redirect("/tasks");
 }

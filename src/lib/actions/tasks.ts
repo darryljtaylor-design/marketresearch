@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { syncTaskToOutlookCalendar } from "@/lib/graph/sync-calendar";
 
 export type LinkableEntityType = "LEAD" | "CONTACT" | "COMPANY" | "OPPORTUNITY";
 
@@ -33,7 +34,7 @@ export async function createQuickTask(
     | "HIGH"
     | "URGENT";
 
-  await prisma.task.create({
+  const task = await prisma.task.create({
     data: {
       subject,
       dueDate: dueDateRaw ? new Date(dueDateRaw) : null,
@@ -47,6 +48,7 @@ export async function createQuickTask(
 
   revalidatePath(detailPath);
   revalidatePath("/tasks");
+  await syncTaskToOutlookCalendar(task.id);
 }
 
 export async function toggleTaskComplete(taskId: string, detailPath: string) {

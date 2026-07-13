@@ -8,6 +8,7 @@ import { NotesPanel } from "@/components/entity/notes-panel";
 import { TasksPanel } from "@/components/entity/tasks-panel";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { CustomFieldsDisplay } from "@/components/custom-fields/custom-fields-display";
+import { EmailsPanel } from "@/components/entity/emails-panel";
 import { getFieldDefs } from "@/lib/custom-fields";
 import { deleteCompany } from "@/app/(app)/companies/actions";
 import { addNote } from "@/lib/actions/notes";
@@ -28,6 +29,7 @@ export default async function CompanyDetailPage({
         opportunities: { orderBy: { createdAt: "desc" } },
         notes: { include: { author: { select: { name: true } } }, orderBy: { createdAt: "desc" } },
         tasks: { include: { assignedTo: { select: { name: true } } }, orderBy: { dueDate: "asc" } },
+        emailMessages: { orderBy: { receivedAt: "desc" }, take: 20 },
       },
     }),
     getAllUsers(),
@@ -144,6 +146,11 @@ export default async function CompanyDetailPage({
           <h2 className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Notes</h2>
           <NotesPanel notes={company.notes} action={noteAction} />
         </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+        <h2 className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Emails</h2>
+        <EmailsPanel emails={company.emailMessages} />
       </div>
     </div>
   );

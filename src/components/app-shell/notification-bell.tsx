@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Bell } from "lucide-react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
@@ -21,23 +21,29 @@ export function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const load = useCallback(async () => {
-    try {
-      const res = await fetch("/api/notifications", { cache: "no-store" });
-      if (!res.ok) return;
-      const data = await res.json();
-      setItems(data.notifications);
-      setUnreadCount(data.unreadCount);
-    } catch {
-      // ignore transient network errors, next poll will retry
-    }
-  }, []);
-
   useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const res = await fetch("/api/notifications", { cache: "no-store" });
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (cancelled) return;
+        setItems(data.notifications);
+        setUnreadCount(data.unreadCount);
+      } catch {
+        // ignore transient network errors, next poll will retry
+      }
+    }
+
     load();
     const interval = setInterval(load, 60_000);
-    return () => clearInterval(interval);
-  }, [load]);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {

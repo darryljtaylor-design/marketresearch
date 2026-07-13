@@ -18,6 +18,7 @@ const GRAPH_SCOPES = [
 // middleware, which runs in a runtime that can't load the Node-only
 // Prisma client. See src/auth.ts for the full server-side config.
 export default {
+  trustHost: true,
   providers: [
     MicrosoftEntraID({
       clientId: process.env.AZURE_AD_CLIENT_ID,

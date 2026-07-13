@@ -19,11 +19,11 @@ export function Sidebar() {
       </Link>
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
         {NAV_ITEMS.map((item) => (
-          <NavLink key={item.href} item={item} />
+          <NavLink key={item.href} href={item.href} />
         ))}
       </nav>
       <div className="border-t border-slate-200 p-3 dark:border-slate-800">
-        <NavLink item={SETTINGS_NAV_ITEM} />
+        <NavLink href={SETTINGS_NAV_ITEM.href} />
       </div>
     </aside>
   );

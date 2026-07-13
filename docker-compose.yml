@@ -1,0 +1,50 @@
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: vscrm
+      POSTGRES_PASSWORD: vscrm_pw
+      POSTGRES_DB: vscrm
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - db
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://vscrm:vscrm_pw@db:5432/vscrm?schema=public
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      AZURE_AD_CLIENT_ID: ${AZURE_AD_CLIENT_ID}
+      AZURE_AD_CLIENT_SECRET: ${AZURE_AD_CLIENT_SECRET}
+      AZURE_AD_TENANT_ID: ${AZURE_AD_TENANT_ID}
+      CRON_SECRET: ${CRON_SECRET}
+
+  # Optional: periodically triggers the sync/notification endpoints so email
+  # keeps flowing in and reminders fire even when nobody has the app open.
+  # Remove this service if you'd rather point an external scheduler (Vercel
+  # Cron, Azure Logic Apps, GitHub Actions) at the same URLs.
+  cron:
+    image: curlimages/curl:8.10.1
+    restart: unless-stopped
+    depends_on:
+      - app
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - >
+        while true; do
+          curl -sf -H "Authorization: Bearer ${CRON_SECRET}" http://app:3000/api/cron/sync-outlook || true;
+          curl -sf -H "Authorization: Bearer ${CRON_SECRET}" http://app:3000/api/cron/check-tasks || true;
+          sleep 300;
+        done
+
+volumes:
+  db_data:

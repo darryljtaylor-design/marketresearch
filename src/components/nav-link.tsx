@@ -3,18 +3,20 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import type { NavItem } from "@/lib/nav";
+import { NAV_ITEMS, SETTINGS_NAV_ITEM } from "@/lib/nav";
+
+const ALL_ITEMS = [...NAV_ITEMS, SETTINGS_NAV_ITEM];
 
 export function NavLink({
-  item,
+  href,
   variant = "sidebar",
 }: {
-  item: NavItem;
+  href: string;
   variant?: "sidebar" | "mobile";
 }) {
   const pathname = usePathname();
-  const isActive =
-    item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+  const item = ALL_ITEMS.find((i) => i.href === href)!;
+  const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
   const Icon = item.icon;
 
   if (variant === "mobile") {
